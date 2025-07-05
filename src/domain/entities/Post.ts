@@ -35,6 +35,14 @@ import {
   getReviewStatusValue,
   createPendingReviewStatus,
 } from "../value-objects/ReviewStatus";
+import {
+  type ReviewComment,
+  createReviewComment,
+} from "../value-objects/ReviewComment";
+import {
+  type Comment,
+  createComment,
+} from "../value-objects/Comment";
 
 /**
  * 投稿エンティティの型定義
@@ -46,6 +54,8 @@ export interface Post {
   readonly authorId: UserId;
   readonly totalNoiceAmount: NoiceAmount;
   readonly reviewStatus: ReviewStatus;
+  readonly reviewComments: readonly ReviewComment[];
+  readonly comments: readonly Comment[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -60,6 +70,8 @@ export const createPost = (
   authorId: UserId,
   totalNoiceAmount: NoiceAmount,
   reviewStatus: ReviewStatus,
+  reviewComments: readonly ReviewComment[],
+  comments: readonly Comment[],
   createdAt: Date,
   updatedAt: Date,
 ): Post => {
@@ -70,6 +82,8 @@ export const createPost = (
     authorId,
     totalNoiceAmount,
     reviewStatus,
+    reviewComments,
+    comments,
     createdAt,
     updatedAt,
   };
@@ -91,6 +105,8 @@ export const createNewPost = (
     authorId,
     createZeroNoiceAmount(),
     createPendingReviewStatus(),
+    [],
+    [],
     now,
     now,
   );
@@ -271,4 +287,88 @@ export const updatePostReviewStatus = (
     reviewStatus: newReviewStatus,
     updatedAt: new Date(),
   };
+};
+
+/**
+ * レビューコメントを取得する
+ */
+export const getPostReviewComments = (post: Post): readonly ReviewComment[] => {
+  return post.reviewComments;
+};
+
+/**
+ * レビューコメントを追加する
+ */
+export const addReviewCommentToPost = (
+  post: Post,
+  content: string,
+  reviewerId: UserId,
+): Post => {
+  const newComment = createReviewComment(content, reviewerId);
+  return {
+    ...post,
+    reviewComments: [...post.reviewComments, newComment],
+    updatedAt: new Date(),
+  };
+};
+
+/**
+ * レビューコメント数を取得する
+ */
+export const getPostReviewCommentCount = (post: Post): number => {
+  return post.reviewComments.length;
+};
+
+/**
+ * 指定されたレビュアーのコメントを取得する
+ */
+export const getPostReviewCommentsByReviewer = (
+  post: Post,
+  reviewerId: UserId,
+): readonly ReviewComment[] => {
+  return post.reviewComments.filter(comment => 
+    isUserIdEqual(comment.reviewerId, reviewerId)
+  );
+};
+
+/**
+ * コメントを取得する
+ */
+export const getPostComments = (post: Post): readonly Comment[] => {
+  return post.comments;
+};
+
+/**
+ * コメントを追加する
+ */
+export const addCommentToPost = (
+  post: Post,
+  content: string,
+  authorId: UserId,
+): Post => {
+  const newComment = createComment(content, authorId);
+  return {
+    ...post,
+    comments: [...post.comments, newComment],
+    updatedAt: new Date(),
+  };
+};
+
+/**
+ * コメント数を取得する
+ */
+export const getPostCommentCount = (post: Post): number => {
+  return post.comments.length;
+};
+
+/**
+ * 指定されたユーザーのコメントを取得する
+ */
+export const getPostCommentsByUser = (
+  post: Post,
+  userId: UserId,
+): readonly Comment[] => {
+  return post.comments.filter(comment => 
+    isUserIdEqual(comment.authorId, userId)
+  );
 };

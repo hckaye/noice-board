@@ -4,11 +4,13 @@ import {
   createPendingReviewStatus,
   createScheduledReviewStatus,
   createAsIsReviewStatus,
+  createCompletedReviewStatus,
   getReviewStatusValue,
   isReviewStatusEqual,
   isPendingReview,
   isScheduledReview,
   isAsIsReview,
+  isCompletedReview,
   isValidReviewStatus,
   REVIEW_STATUS_VALUES,
 } from "../../../src/domain/value-objects/ReviewStatus";
@@ -66,6 +68,21 @@ describe("ReviewStatus", () => {
       expect(isPendingReview(reviewStatus)).toBe(false);
       expect(isScheduledReview(reviewStatus)).toBe(false);
       expect(isAsIsReview(reviewStatus)).toBe(true);
+      expect(isCompletedReview(reviewStatus)).toBe(false);
+    });
+  });
+
+  describe("createCompletedReviewStatus", () => {
+    it("対応済みステータスを作成できる", () => {
+      const reviewStatus = createCompletedReviewStatus();
+
+      expect(getReviewStatusValue(reviewStatus)).toBe(
+        REVIEW_STATUS_VALUES.COMPLETED,
+      );
+      expect(isPendingReview(reviewStatus)).toBe(false);
+      expect(isScheduledReview(reviewStatus)).toBe(false);
+      expect(isAsIsReview(reviewStatus)).toBe(false);
+      expect(isCompletedReview(reviewStatus)).toBe(true);
     });
   });
 

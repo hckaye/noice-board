@@ -15,6 +15,7 @@ export const REVIEW_STATUS_VALUES = {
   PENDING: "レビュー待ち",
   SCHEDULED: "対応予定",
   AS_IS: "そのまま",
+  COMPLETED: "対応済み",
 } as const;
 
 /**
@@ -74,6 +75,13 @@ export const createAsIsReviewStatus = (): ReviewStatus => {
 };
 
 /**
+ * 対応済みステータスを作成する
+ */
+export const createCompletedReviewStatus = (): ReviewStatus => {
+  return createReviewStatus(REVIEW_STATUS_VALUES.COMPLETED);
+};
+
+/**
  * レビューステータスの値を取得する
  */
 export const getReviewStatusValue = (
@@ -111,4 +119,11 @@ export const isScheduledReview = (reviewStatus: ReviewStatus): boolean => {
  */
 export const isAsIsReview = (reviewStatus: ReviewStatus): boolean => {
   return reviewStatus.value === REVIEW_STATUS_VALUES.AS_IS;
+};
+
+/**
+ * 対応済みかどうか判定する
+ */
+export const isCompletedReview = (reviewStatus: ReviewStatus): boolean => {
+  return reviewStatus.value === REVIEW_STATUS_VALUES.COMPLETED;
 };

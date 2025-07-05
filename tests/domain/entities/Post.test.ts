@@ -17,6 +17,12 @@ import {
   getPostUpdatedAt,
   getPostReviewStatus,
   updatePostReviewStatus,
+  getPostReviewComments,
+  addReviewCommentToPost,
+  getPostReviewCommentCount,
+  getPostComments,
+  addCommentToPost,
+  getPostCommentCount,
 } from "../../../src/domain/entities/Post";
 import {
   createPostIdOrThrow,
@@ -54,6 +60,8 @@ describe("Post", () => {
   const authorId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440001");
   const totalNoice = createNoiceAmountOrThrow(500);
   const reviewStatus = createPendingReviewStatus();
+  const reviewComments = [];
+  const comments = [];
   const now = new Date();
 
   describe("投稿の作成", () => {
@@ -65,6 +73,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -79,6 +89,8 @@ describe("Post", () => {
       expect(isReviewStatusEqual(getPostReviewStatus(post), reviewStatus)).toBe(
         true,
       );
+      expect(getPostReviewComments(post)).toEqual(reviewComments);
+      expect(getPostComments(post)).toEqual(comments);
       expect(getPostCreatedAt(post)).toBe(now);
       expect(getPostUpdatedAt(post)).toBe(now);
     });
@@ -91,6 +103,8 @@ describe("Post", () => {
       expect(isUserIdEqual(getPostAuthorId(newPost), authorId)).toBe(true);
       expect(getNoiceAmountValue(getPostTotalNoiceAmount(newPost))).toBe(0);
       expect(isPendingReview(getPostReviewStatus(newPost))).toBe(true);
+      expect(getPostReviewCommentCount(newPost)).toBe(0);
+      expect(getPostCommentCount(newPost)).toBe(0);
       expect(getPostCreatedAt(newPost)).toBeInstanceOf(Date);
       expect(getPostUpdatedAt(newPost)).toBeInstanceOf(Date);
     });
@@ -105,6 +119,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -123,6 +139,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -143,6 +161,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -167,6 +187,8 @@ describe("Post", () => {
         authorId,
         createNoiceAmountOrThrow(100),
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -200,6 +222,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -220,6 +244,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -235,6 +261,90 @@ describe("Post", () => {
     });
   });
 
+  describe("レビューコメントの管理", () => {
+    it("レビューコメントを追加できる", () => {
+      const post = createNewPost(title, content, authorId);
+      const reviewerId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const commentContent = "これは良い投稿ですね。";
+
+      const updatedPost = addReviewCommentToPost(post, commentContent, reviewerId);
+
+      expect(getPostReviewCommentCount(updatedPost)).toBe(1);
+      const reviewComments = getPostReviewComments(updatedPost);
+      expect(reviewComments).toHaveLength(1);
+      expect(reviewComments[0].content).toBe(commentContent);
+    });
+
+    it("複数のレビューコメントを追加できる", () => {
+      const post = createNewPost(title, content, authorId);
+      const reviewerId1 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const reviewerId2 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440003");
+      
+      const postWithComment1 = addReviewCommentToPost(post, "コメント1", reviewerId1);
+      const postWithComment2 = addReviewCommentToPost(postWithComment1, "コメント2", reviewerId2);
+
+      expect(getPostReviewCommentCount(postWithComment2)).toBe(2);
+    });
+
+    it("レビューコメント追加時に更新日時が変更される", () => {
+      const post = createNewPost(title, content, authorId);
+      const originalUpdatedAt = getPostUpdatedAt(post);
+      const reviewerId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+
+      const updatedPost = addReviewCommentToPost(post, "テストコメント", reviewerId);
+
+      expect(getPostUpdatedAt(updatedPost)).not.toBe(originalUpdatedAt);
+    });
+  });
+
+  describe("コメントの管理", () => {
+    it("コメントを追加できる", () => {
+      const post = createNewPost(title, content, authorId);
+      const commenterId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const commentContent = "面白い投稿ですね！";
+
+      const updatedPost = addCommentToPost(post, commentContent, commenterId);
+
+      expect(getPostCommentCount(updatedPost)).toBe(1);
+      const postComments = getPostComments(updatedPost);
+      expect(postComments).toHaveLength(1);
+      expect(postComments[0].content).toBe(commentContent);
+    });
+
+    it("複数のコメントを追加できる", () => {
+      const post = createNewPost(title, content, authorId);
+      const commenter1 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const commenter2 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440003");
+      
+      const postWithComment1 = addCommentToPost(post, "良い記事ですね", commenter1);
+      const postWithComment2 = addCommentToPost(postWithComment1, "参考になりました", commenter2);
+
+      expect(getPostCommentCount(postWithComment2)).toBe(2);
+    });
+
+    it("コメント追加時に更新日時が変更される", () => {
+      const post = createNewPost(title, content, authorId);
+      const originalUpdatedAt = getPostUpdatedAt(post);
+      const commenterId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+
+      const updatedPost = addCommentToPost(post, "テストコメント", commenterId);
+
+      expect(getPostUpdatedAt(updatedPost)).not.toBe(originalUpdatedAt);
+    });
+
+    it("長いコメントも追加できる", () => {
+      const post = createNewPost(title, content, authorId);
+      const commenterId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const longComment = "これは長いコメントです。".repeat(50); // 約1000文字
+
+      const updatedPost = addCommentToPost(post, longComment, commenterId);
+
+      expect(getPostCommentCount(updatedPost)).toBe(1);
+      const postComments = getPostComments(updatedPost);
+      expect(postComments[0].content).toBe(longComment);
+    });
+  });
+
   describe("投稿者の判定", () => {
     it("指定されたユーザーが投稿者かどうか判定できる", () => {
       const post = createPost(
@@ -244,6 +354,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -265,6 +377,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -275,6 +389,8 @@ describe("Post", () => {
         createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002"),
         createNoiceAmountOrThrow(1000),
         reviewStatus,
+        reviewComments,
+        comments,
         new Date(),
         new Date(),
       );
@@ -293,6 +409,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -303,6 +421,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -331,6 +451,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
@@ -352,6 +474,8 @@ describe("Post", () => {
         authorId,
         totalNoice,
         reviewStatus,
+        reviewComments,
+        comments,
         now,
         now,
       );
