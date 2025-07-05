@@ -227,7 +227,14 @@ export const updatePost = (
 /**
  * いいねを追加する
  */
-export const addNoiceToPost = (post: Post, noice: Noice): Post => {
+
+/**
+ * いいねを追加する（純粋関数）
+ */
+export const addNoiceToPost = (
+  post: Post,
+  noice: Noice,
+): Post => {
   return {
     ...post,
     noices: [...post.noices, noice],
