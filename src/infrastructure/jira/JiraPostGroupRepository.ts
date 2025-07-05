@@ -110,10 +110,12 @@ import { generateNewPostId } from "../../domain/value-objects/PostId";
 import { createDefaultPostGroupPath } from "../../domain/value-objects/PostGroupPath";
 import { createEmptyHashtagList, addHashtagToList } from "../../domain/value-objects/Hashtag";
 import { createPendingReviewStatus, createReviewStatus, isValidReviewStatus, type ReviewStatusValue } from "../../domain/value-objects/ReviewStatus";
+import { createReviewComment } from "../../domain/value-objects/ReviewComment";
 
 export const convertJiraCommentToPost = (
   comment: JiraComment,
   groupPath = createDefaultPostGroupPath(),
+  replies: JiraComment[] = [],
 ): Post => {
   // タイトルはJiraコメントの先頭20文字＋...（仮実装）
   const titleResult = createPostTitle(comment.body.slice(0, 20));
@@ -133,14 +135,26 @@ export const convertJiraCommentToPost = (
     }
   }
 
-  // [[ Review: {Status名} ]] 形式からレビュー状態抽出
+  // Reviewコメント抽出
   let reviewStatus = createPendingReviewStatus();
-  const reviewMatch = comment.body.match(/\[\[\s*Review:\s*([^\]]+)\]\]/i);
-  if (reviewMatch) {
-    const statusStr = reviewMatch[1].trim();
+  let reviewComments: ReturnType<typeof createReviewComment>[] = [];
+  const reviewReplies = replies.filter(r => /^\s*\[\[\s*Review:([^\]]+)\]\]/i.test(r.body));
+  if (reviewReplies.length > 0) {
+    // 最新のレビューコメントのステータスを採用
+    const latest = reviewReplies[reviewReplies.length - 1];
+    const match = latest.body.match(/^\s*\[\[\s*Review:\s*([^\]]+)\]\]/i);
+    const statusStr = match ? match[1].trim() : "";
     if (isValidReviewStatus(statusStr)) {
       reviewStatus = createReviewStatus(statusStr);
     }
+    // 全てのレビューコメントをReviewCommentとして格納
+    reviewComments = reviewReplies.map(r => {
+      const m = r.body.match(/^\s*\[\[\s*Review:\s*([^\]]+)\]\]\s*([\s\S]*)$/i);
+      const content = m ? m[2].trim() : "";
+      const userIdResult = createUserId(r.author.accountId);
+      if (!userIdResult.success) throw new Error("Invalid UserId in review comment");
+      return createReviewComment(content, userIdResult.data);
+    });
   }
 
   return createPost(
@@ -151,7 +165,7 @@ export const convertJiraCommentToPost = (
     groupPath,
     hashtags,
     reviewStatus,
-    [],
+    reviewComments,
     [],
     [],
     new Date(comment.created),
@@ -181,9 +195,21 @@ export class JiraPostGroupRepository implements PostGroupRepository {
         : [];
       const childrenGroups = await Promise.all(childrenIssues.map(buildGroup));
 
-      // コメント取得→Post変換
+      // コメント取得→Post変換（親子関係を考慮）
       const comments = await this.apiClient.fetchIssueComments(issue.key);
-      const posts = comments.map(c => convertJiraCommentToPost(c));
+
+      // 親コメント（root）と返信（replies）を分離
+      // Jiraのコメントは親子情報がないため、全てを親コメントとみなす
+      // ただし、[[ Review:... ]]で始まるものはreviewRepliesとして各Postに紐付ける
+      const posts = comments
+        .filter(c => !/^\s*\[\[\s*Review:([^\]]+)\]\]/i.test(c.body))
+        .map(parent => {
+          // この親コメントに紐づくレビューコメント（返信）を全て渡す
+          const replies = comments.filter(
+            r => /^\s*\[\[\s*Review:([^\]]+)\]\]/i.test(r.body)
+          );
+          return convertJiraCommentToPost(parent, undefined, replies);
+        });
 
       return {
         name: createPostGroupVOFromSummary(issue.fields.summary),
