@@ -25,6 +25,12 @@ import {
   getPostCommentCount,
   getPostNoices,
   getPostNoiceCount,
+  getPostHashtagsAsStringArray,
+  getPostHashtagCount,
+  hasPostHashtag,
+  addHashtagToPost,
+  removeHashtagFromPost,
+  updatePostHashtags,
 } from "../../../src/domain/entities/Post";
 import {
   createPostIdOrThrow,
@@ -57,17 +63,29 @@ import {
   createNewNoiceWithComment,
   addNoiceToNoice,
 } from "../../../src/domain/entities/Noice";
+import {
+  createEmptyHashtagList,
+  createHashtagList,
+} from "../../../src/domain/value-objects/Hashtag";
+
+import { createPostGroupPath } from "../../../src/domain/value-objects/PostGroupPath";
 
 describe("Post", () => {
   const postId = createPostIdOrThrow("550e8400-e29b-41d4-a716-446655440000");
   const title = createPostTitleOrThrow("テスト投稿のタイトル");
   const content = createPostContentOrThrow("これはテスト投稿の本文です。");
   const authorId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440001");
+  const hashtags = createEmptyHashtagList();
   const reviewStatus = createPendingReviewStatus();
   const reviewComments = [];
   const comments = [];
   const noices = [];
   const now = new Date();
+
+  // 共通のグループパス値オブジェクト
+  const groupPathResult = createPostGroupPath("general");
+  if (!groupPathResult.success) throw new Error("invalid group path");
+  const groupPath = groupPathResult.data;
 
   describe("投稿の作成", () => {
     it("有効な値でPostを作成できる", () => {
@@ -76,6 +94,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -122,6 +142,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -142,6 +164,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -164,6 +188,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -277,6 +303,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -299,6 +327,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -409,6 +439,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -432,6 +464,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -444,6 +478,8 @@ describe("Post", () => {
         createPostTitleOrThrow("Different Title"),
         createPostContentOrThrow("Different content"),
         createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002"),
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -464,6 +500,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -476,6 +514,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -485,6 +525,101 @@ describe("Post", () => {
       );
 
       expect(isPostEqual(post1, post2)).toBe(false);
+    });
+  });
+
+  describe("ハッシュタグの管理", () => {
+    it("ハッシュタグなしで投稿を作成できる", () => {
+      const post = createNewPost(title, content, authorId);
+      
+      expect(getPostHashtagCount(post)).toBe(0);
+      expect(getPostHashtagsAsStringArray(post)).toEqual([]);
+    });
+
+    it("ハッシュタグ付きで投稿を作成できる", () => {
+      const testHashtags = createHashtagList(["#テスト", "#投稿"]);
+      const post = createNewPost(title, content, authorId, undefined, testHashtags);
+      
+      expect(getPostHashtagCount(post)).toBe(2);
+      expect(getPostHashtagsAsStringArray(post)).toEqual(["#テスト", "#投稿"]);
+    });
+
+    it("ハッシュタグを追加できる", () => {
+      const post = createNewPost(title, content, authorId);
+      const updatedPost = addHashtagToPost(post, "#新しいタグ");
+      
+      expect(getPostHashtagCount(updatedPost)).toBe(1);
+      expect(hasPostHashtag(updatedPost, "#新しいタグ")).toBe(true);
+    });
+
+    it("重複するハッシュタグは追加されない", () => {
+      const testHashtags = createHashtagList(["#既存タグ"]);
+      const post = createNewPost(title, content, authorId, undefined, testHashtags);
+      const updatedPost = addHashtagToPost(post, "#既存タグ");
+      
+      expect(getPostHashtagCount(updatedPost)).toBe(1);
+      expect(getPostHashtagsAsStringArray(updatedPost)).toEqual(["#既存タグ"]);
+    });
+
+    it("ハッシュタグを削除できる", () => {
+      const testHashtags = createHashtagList(["#タグ1", "#タグ2", "#タグ3"]);
+      const post = createNewPost(title, content, authorId, undefined, testHashtags);
+      const updatedPost = removeHashtagFromPost(post, "#タグ2");
+      
+      expect(getPostHashtagCount(updatedPost)).toBe(2);
+      expect(hasPostHashtag(updatedPost, "#タグ2")).toBe(false);
+      expect(getPostHashtagsAsStringArray(updatedPost)).toEqual(["#タグ1", "#タグ3"]);
+    });
+
+    it("存在しないハッシュタグを削除しても変化がない", () => {
+      const testHashtags = createHashtagList(["#タグ1", "#タグ2"]);
+      const post = createNewPost(title, content, authorId, undefined, testHashtags);
+      const updatedPost = removeHashtagFromPost(post, "#存在しないタグ");
+      
+      expect(getPostHashtagCount(updatedPost)).toBe(2);
+      expect(getPostHashtagsAsStringArray(updatedPost)).toEqual(["#タグ1", "#タグ2"]);
+    });
+
+    it("ハッシュタグリストを更新できる", () => {
+      const initialHashtags = createHashtagList(["#古いタグ1", "#古いタグ2"]);
+      const post = createNewPost(title, content, authorId, undefined, initialHashtags);
+      
+      const newHashtags = createHashtagList(["#新しいタグ1", "#新しいタグ2", "#新しいタグ3"]);
+      const updatedPost = updatePostHashtags(post, newHashtags);
+      
+      expect(getPostHashtagCount(updatedPost)).toBe(3);
+      expect(getPostHashtagsAsStringArray(updatedPost)).toEqual([
+        "#新しいタグ1", "#新しいタグ2", "#新しいタグ3"
+      ]);
+    });
+
+    it("ハッシュタグ追加時に更新日時が変更される", () => {
+      const post = createNewPost(title, content, authorId);
+      const originalUpdatedAt = getPostUpdatedAt(post);
+      
+      const updatedPost = addHashtagToPost(post, "#テストタグ");
+      
+      expect(getPostUpdatedAt(updatedPost)).not.toBe(originalUpdatedAt);
+    });
+
+    it("ハッシュタグ削除時に更新日時が変更される", () => {
+      const testHashtags = createHashtagList(["#削除予定タグ"]);
+      const post = createNewPost(title, content, authorId, undefined, testHashtags);
+      const originalUpdatedAt = getPostUpdatedAt(post);
+      
+      const updatedPost = removeHashtagFromPost(post, "#削除予定タグ");
+      
+      expect(getPostUpdatedAt(updatedPost)).not.toBe(originalUpdatedAt);
+    });
+
+    it("ハッシュタグリスト更新時に更新日時が変更される", () => {
+      const post = createNewPost(title, content, authorId);
+      const originalUpdatedAt = getPostUpdatedAt(post);
+      
+      const newHashtags = createHashtagList(["#更新タグ"]);
+      const updatedPost = updatePostHashtags(post, newHashtags);
+      
+      expect(getPostUpdatedAt(updatedPost)).not.toBe(originalUpdatedAt);
     });
   });
 
@@ -507,6 +642,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,
@@ -530,6 +667,8 @@ describe("Post", () => {
         title,
         content,
         authorId,
+        groupPath,
+        hashtags,
         reviewStatus,
         reviewComments,
         comments,

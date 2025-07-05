@@ -74,6 +74,16 @@ export type RupeeAmount = Brand<number, "RupeeAmount">;
 export type UserDisplayName = Brand<string, "UserDisplayName">;
 
 /**
+ * ハッシュタグ型（#で始まる1-50文字の文字列）
+ */
+export type Hashtag = Brand<string, "Hashtag">;
+
+/**
+ * ハッシュタグリスト型
+ */
+export type HashtagList = readonly Hashtag[];
+
+/**
  * エラー結果型
  */
 export type ValidationError = {

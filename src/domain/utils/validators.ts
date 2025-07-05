@@ -13,9 +13,9 @@ import type {
   RupeeAmount,
   UserDisplayName,
   Result,
-  ValidationError,
   TypeGuard,
   Validator,
+  ValidationError,
 } from "../types";
 
 /**

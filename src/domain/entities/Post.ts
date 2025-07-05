@@ -15,7 +15,9 @@ import type {
   UserId,
   PostTitle,
   PostContent,
+  HashtagList,
 } from "../types";
+import type { PostGroupPath } from "../value-objects/PostGroupPath";
 import {
   isPostIdEqual,
   getPostIdValue,
@@ -41,6 +43,14 @@ import {
   type Noice,
   getNoiceTotalAmount,
 } from "./Noice";
+import {
+  createEmptyHashtagList,
+  getHashtagListAsStringArray,
+  addHashtagToList,
+  removeHashtagFromList,
+  hasHashtagInList,
+  getHashtagListCount,
+} from "../value-objects/Hashtag";
 
 /**
  * 投稿エンティティの型定義
@@ -50,6 +60,8 @@ export interface Post {
   readonly title: PostTitle;
   readonly content: PostContent;
   readonly authorId: UserId;
+  readonly groupPath: PostGroupPath;
+  readonly hashtags: HashtagList;
   readonly reviewStatus: ReviewStatus;
   readonly reviewComments: readonly ReviewComment[];
   readonly comments: readonly Comment[];
@@ -66,6 +78,8 @@ export const createPost = (
   title: PostTitle,
   content: PostContent,
   authorId: UserId,
+  groupPath: PostGroupPath,
+  hashtags: HashtagList,
   reviewStatus: ReviewStatus,
   reviewComments: readonly ReviewComment[],
   comments: readonly Comment[],
@@ -78,6 +92,8 @@ export const createPost = (
     title,
     content,
     authorId,
+    groupPath,
+    hashtags,
     reviewStatus,
     reviewComments,
     comments,
@@ -90,10 +106,14 @@ export const createPost = (
 /**
  * 新しいPostエンティティを生成する
  */
+import { createDefaultPostGroupPath } from "../value-objects/PostGroupPath";
+
 export const createNewPost = (
   title: PostTitle,
   content: PostContent,
   authorId: UserId,
+  groupPath?: PostGroupPath,
+  hashtags?: HashtagList,
 ): Post => {
   const now = new Date();
   return createPost(
@@ -101,6 +121,8 @@ export const createNewPost = (
     title,
     content,
     authorId,
+    groupPath ?? createDefaultPostGroupPath(),
+    hashtags ?? createEmptyHashtagList(),
     createPendingReviewStatus(),
     [],
     [],
@@ -397,4 +419,61 @@ export const getPostNoicesByUser = (
   return post.noices.filter(noice => 
     isUserIdEqual(noice.fromUserId, userId)
   );
+};
+
+
+/**
+ * ハッシュタグを文字列配列として取得する
+ */
+export const getPostHashtagsAsStringArray = (post: Post): string[] => {
+  return getHashtagListAsStringArray(post.hashtags);
+};
+
+/**
+ * ハッシュタグ数を取得する
+ */
+export const getPostHashtagCount = (post: Post): number => {
+  return getHashtagListCount(post.hashtags);
+};
+
+/**
+ * 指定されたハッシュタグが含まれているかチェックする
+ */
+export const hasPostHashtag = (post: Post, hashtag: string): boolean => {
+  return hasHashtagInList(post.hashtags, hashtag);
+};
+
+/**
+ * ハッシュタグを追加する
+ */
+export const addHashtagToPost = (post: Post, hashtag: string): Post => {
+  const updatedHashtags = addHashtagToList(post.hashtags, hashtag);
+  return {
+    ...post,
+    hashtags: updatedHashtags,
+    updatedAt: new Date(),
+  };
+};
+
+/**
+ * ハッシュタグを削除する
+ */
+export const removeHashtagFromPost = (post: Post, hashtag: string): Post => {
+  const updatedHashtags = removeHashtagFromList(post.hashtags, hashtag);
+  return {
+    ...post,
+    hashtags: updatedHashtags,
+    updatedAt: new Date(),
+  };
+};
+
+/**
+ * ハッシュタグを更新する
+ */
+export const updatePostHashtags = (post: Post, hashtags: HashtagList): Post => {
+  return {
+    ...post,
+    hashtags,
+    updatedAt: new Date(),
+  };
 };
