@@ -43,6 +43,7 @@ export type JiraUser = {
   accountId: string;
   displayName: string;
   emailAddress?: string;
+  avatarUrls?: Record<string, string>;
   // 他必要なフィールド
 };
 
@@ -107,8 +108,8 @@ import { createPostContent } from "../../domain/value-objects/PostContent";
 import { createUserId } from "../../domain/value-objects/UserId";
 import { generateNewPostId } from "../../domain/value-objects/PostId";
 import { createDefaultPostGroupPath } from "../../domain/value-objects/PostGroupPath";
-import { createEmptyHashtagList } from "../../domain/value-objects/Hashtag";
-import { createPendingReviewStatus } from "../../domain/value-objects/ReviewStatus";
+import { createEmptyHashtagList, addHashtagToList } from "../../domain/value-objects/Hashtag";
+import { createPendingReviewStatus, createReviewStatus, isValidReviewStatus, type ReviewStatusValue } from "../../domain/value-objects/ReviewStatus";
 
 export const convertJiraCommentToPost = (
   comment: JiraComment,
@@ -121,14 +122,35 @@ export const convertJiraCommentToPost = (
   if (!contentResult.success) throw new Error("Invalid PostContent from Jira comment");
   const authorId = createUserId(comment.author.accountId);
   if (!authorId.success) throw new Error("Invalid UserId from Jira comment author");
+
+  // [[ HashTag: サンプル1, サンプル2 ]] 形式からハッシュタグ抽出
+  let hashtags = createEmptyHashtagList();
+  const hashtagMatch = comment.body.match(/\[\[\s*HashTag:\s*([^\]]+)\]\]/i);
+  if (hashtagMatch) {
+    const tags = hashtagMatch[1].split(",").map(s => s.trim()).filter(Boolean);
+    for (const tag of tags) {
+      hashtags = addHashtagToList(hashtags, tag);
+    }
+  }
+
+  // [[ Review: {Status名} ]] 形式からレビュー状態抽出
+  let reviewStatus = createPendingReviewStatus();
+  const reviewMatch = comment.body.match(/\[\[\s*Review:\s*([^\]]+)\]\]/i);
+  if (reviewMatch) {
+    const statusStr = reviewMatch[1].trim();
+    if (isValidReviewStatus(statusStr)) {
+      reviewStatus = createReviewStatus(statusStr);
+    }
+  }
+
   return createPost(
     generateNewPostId(),
     titleResult.data,
     contentResult.data,
     authorId.data,
     groupPath,
-    createEmptyHashtagList(),
-    createPendingReviewStatus(),
+    hashtags,
+    reviewStatus,
     [],
     [],
     [],

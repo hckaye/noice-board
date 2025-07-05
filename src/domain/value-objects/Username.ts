@@ -30,6 +30,33 @@ export const createUsername = (value: string): Result<Username> => {
 };
 
 /**
+ * UserDisplayName型（ブランド化string）
+ */
+export type UserDisplayName = string & { readonly __brand: "UserDisplayName" };
+
+/**
+ * UserDisplayNameを作成する
+ * - 3文字以上50文字以下
+ * - 空文字不可
+ * - 任意文字列
+ */
+export const createUserDisplayName = (value: string): Result<UserDisplayName> => {
+  if (typeof value !== "string" || value.length < 3 || value.length > 50) {
+    return {
+      success: false,
+      error: {
+        message: "UserDisplayNameは3-50文字の文字列である必要があります",
+        field: "userDisplayName",
+      },
+    };
+  }
+  return {
+    success: true,
+    data: value as UserDisplayName,
+  };
+};
+
+/**
  * Usernameの値を取得する
  */
 export const getUsernameValue = (username: Username): string => {

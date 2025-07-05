@@ -31,8 +31,9 @@ export interface User {
   readonly id: UserId;
   readonly username: Username;
   readonly displayName: UserDisplayName;
-  readonly noiceAmount: NoiceAmount;
   readonly createdAt: Date;
+  readonly noiceAmount: NoiceAmount;
+  readonly avatarUrl: string;
 }
 
 /**
