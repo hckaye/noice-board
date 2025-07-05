@@ -109,7 +109,7 @@ import { createUserId } from "../../domain/value-objects/UserId";
 import { generateNewPostId } from "../../domain/value-objects/PostId";
 import { createDefaultPostGroupPath } from "../../domain/value-objects/PostGroupPath";
 import { createEmptyHashtagList, addHashtagToList } from "../../domain/value-objects/Hashtag";
-import { createPendingReviewStatus, createReviewStatus, isValidReviewStatus, type ReviewStatusValue } from "../../domain/value-objects/ReviewStatus";
+import { createPendingReviewStatus, createReviewStatus, isValidReviewStatus } from "../../domain/value-objects/ReviewStatus";
 import { createReviewComment } from "../../domain/value-objects/ReviewComment";
 
 export const convertJiraCommentToPost = (
@@ -183,39 +183,64 @@ export class JiraPostGroupRepository implements PostGroupRepository {
 
   // PostGroupPathからJira Epic/Task/Subtaskを辿ってPostGroupを取得
   async findByPath(path: PostGroupPath): Promise<PostGroup | null> {
-    // 仮: path.valueをEpicのIssue Keyとみなす
+    // path.valueをEpicのIssue Keyとみなす
     const epicKey = (path as unknown as { value: string }).value ?? "";
     if (!epicKey) return null;
 
     // Epicとその子（Task/Subtask）を再帰的に取得
-    const buildGroup = async (issue: JiraIssue): Promise<PostGroup> => {
-      // 子Issue取得（Task/Subtask）
-      const childrenIssues: JiraIssue[] = issue.fields.issuetype.name === "Epic"
-        ? (await this.apiClient.fetchEpicWithChildren(issue.key)).fields.children ?? []
-        : [];
-      const childrenGroups = await Promise.all(childrenIssues.map(buildGroup));
+    const buildGroup = async (epic: JiraIssue): Promise<PostGroup> => {
+      // Epic配下のTaskを取得
+      const epicWithChildren = await this.apiClient.fetchEpicWithChildren(epic.key);
+      const taskIssues: JiraIssue[] = epicWithChildren.fields.children ?? [];
 
-      // コメント取得→Post変換（親子関係を考慮）
-      const comments = await this.apiClient.fetchIssueComments(issue.key);
+      // Task IssueをPostに変換
+      const posts = await Promise.all(
+        taskIssues.map(async (task) => {
+          // Task IssueのlabelsからPostGroup階層とハッシュタグを抽出
+          const fields = task.fields as JiraIssue["fields"] & {
+            labels?: string[];
+            status?: { name: string };
+            reporter?: { accountId: string; displayName: string };
+            created?: string;
+          };
+          const labels: string[] = fields.labels ?? [];
+          const hashtagLabels = labels.filter(l => l.startsWith("_#"));
 
-      // 親コメント（root）と返信（replies）を分離
-      // Jiraのコメントは親子情報がないため、全てを親コメントとみなす
-      // ただし、[[ Review:... ]]で始まるものはreviewRepliesとして各Postに紐付ける
-      const posts = comments
-        .filter(c => !/^\s*\[\[\s*Review:([^\]]+)\]\]/i.test(c.body))
-        .map(parent => {
-          // この親コメントに紐づくレビューコメント（返信）を全て渡す
-          const replies = comments.filter(
-            r => /^\s*\[\[\s*Review:([^\]]+)\]\]/i.test(r.body)
+          // コメント取得
+          const comments = await this.apiClient.fetchIssueComments(task.key);
+
+          // Review/Noice/NoiceComment変換（ここでは単純に全コメントをPostのコメントとして格納、詳細ロジックは後続で拡張）
+          // Noice, NoiceComment, ReviewCommentの変換は要件に応じて拡張
+          // HashtagList型へ変換
+          let hashtags = createEmptyHashtagList();
+          for (const tag of hashtagLabels.map(l => l.replace(/^_#/, ""))) {
+            hashtags = addHashtagToList(hashtags, tag);
+          }
+          // Post生成
+          const basePost = convertJiraCommentToPost(
+            comments[0] ?? {
+              id: "",
+              body: fields.summary,
+              author: fields.reporter ?? { accountId: "", displayName: "" },
+              created: fields.created ?? new Date().toISOString(),
+            },
+            undefined,
+            comments.slice(1)
           );
-          return convertJiraCommentToPost(parent, undefined, replies);
-        });
+          // hashtagsのみ上書き
+          return {
+            ...basePost,
+            hashtags,
+          };
+        })
+      );
 
+      // Epic配下のTask以外の階層（サブグループ）はラベルで表現するためchildrenは空配列
       return {
-        name: createPostGroupVOFromSummary(issue.fields.summary),
-        noiceLimit: extractNoiceLimitFromDescription(issue.fields.description),
+        name: createPostGroupVOFromSummary(epic.fields.summary),
+        noiceLimit: extractNoiceLimitFromDescription(epic.fields.description),
         posts,
-        children: childrenGroups,
+        children: [],
       };
     };
 

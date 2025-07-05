@@ -90,9 +90,9 @@ export class JiraApiClientImpl implements JiraApiClient {
     // 各TaskのSubtask
     for (const task of tasks) {
       const subtasks = await this.searchIssues(`parent=${task.key}`);
-      (task.fields as any).children = subtasks;
+      (task.fields as unknown as { children?: JiraIssue[] }).children = subtasks;
     }
-    (epic.fields as any).children = tasks;
+    (epic.fields as unknown as { children?: JiraIssue[] }).children = tasks;
     return epic;
   }
 }
