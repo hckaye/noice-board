@@ -5,7 +5,7 @@ import {
   updatePostTitle,
   updatePostContent,
   updatePost,
-  receivePostNoice,
+  addNoiceToPost,
   isPostAuthor,
   isPostEqual,
   getPostId,
@@ -23,6 +23,8 @@ import {
   getPostComments,
   addCommentToPost,
   getPostCommentCount,
+  getPostNoices,
+  getPostNoiceCount,
 } from "../../../src/domain/entities/Post";
 import {
   createPostIdOrThrow,
@@ -42,8 +44,6 @@ import {
 } from "../../../src/domain/value-objects/UserId";
 import {
   createNoiceAmountOrThrow,
-  isNoiceAmountEqual,
-  getNoiceAmountValue,
 } from "../../../src/domain/value-objects/NoiceAmount";
 import {
   createPendingReviewStatus,
@@ -52,16 +52,21 @@ import {
   isReviewStatusEqual,
   isPendingReview,
 } from "../../../src/domain/value-objects/ReviewStatus";
+import {
+  createNewNoice,
+  createNewNoiceWithComment,
+  addNoiceToNoice,
+} from "../../../src/domain/entities/Noice";
 
 describe("Post", () => {
   const postId = createPostIdOrThrow("550e8400-e29b-41d4-a716-446655440000");
   const title = createPostTitleOrThrow("テスト投稿のタイトル");
   const content = createPostContentOrThrow("これはテスト投稿の本文です。");
   const authorId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440001");
-  const totalNoice = createNoiceAmountOrThrow(500);
   const reviewStatus = createPendingReviewStatus();
   const reviewComments = [];
   const comments = [];
+  const noices = [];
   const now = new Date();
 
   describe("投稿の作成", () => {
@@ -71,10 +76,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -83,14 +88,13 @@ describe("Post", () => {
       expect(isPostTitleEqual(getPostTitle(post), title)).toBe(true);
       expect(isPostContentEqual(getPostContent(post), content)).toBe(true);
       expect(isUserIdEqual(getPostAuthorId(post), authorId)).toBe(true);
-      expect(
-        isNoiceAmountEqual(getPostTotalNoiceAmount(post), totalNoice),
-      ).toBe(true);
+      expect(getPostTotalNoiceAmount(post)).toBe(0);
       expect(isReviewStatusEqual(getPostReviewStatus(post), reviewStatus)).toBe(
         true,
       );
       expect(getPostReviewComments(post)).toEqual(reviewComments);
       expect(getPostComments(post)).toEqual(comments);
+      expect(getPostNoices(post)).toEqual(noices);
       expect(getPostCreatedAt(post)).toBe(now);
       expect(getPostUpdatedAt(post)).toBe(now);
     });
@@ -101,10 +105,11 @@ describe("Post", () => {
       expect(isPostTitleEqual(getPostTitle(newPost), title)).toBe(true);
       expect(isPostContentEqual(getPostContent(newPost), content)).toBe(true);
       expect(isUserIdEqual(getPostAuthorId(newPost), authorId)).toBe(true);
-      expect(getNoiceAmountValue(getPostTotalNoiceAmount(newPost))).toBe(0);
+      expect(getPostTotalNoiceAmount(newPost)).toBe(0);
       expect(isPendingReview(getPostReviewStatus(newPost))).toBe(true);
       expect(getPostReviewCommentCount(newPost)).toBe(0);
       expect(getPostCommentCount(newPost)).toBe(0);
+      expect(getPostNoiceCount(newPost)).toBe(0);
       expect(getPostCreatedAt(newPost)).toBeInstanceOf(Date);
       expect(getPostUpdatedAt(newPost)).toBeInstanceOf(Date);
     });
@@ -117,10 +122,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -137,10 +142,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -159,10 +164,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -178,38 +183,90 @@ describe("Post", () => {
     });
   });
 
-  describe("いいねの受け取り", () => {
-    it("いいねを受け取ることができる", () => {
-      const post = createPost(
-        postId,
-        title,
-        content,
-        authorId,
-        createNoiceAmountOrThrow(100),
-        reviewStatus,
-        reviewComments,
-        comments,
-        now,
-        now,
-      );
-      const receiveAmount = createNoiceAmountOrThrow(200);
+  describe("いいねの管理", () => {
+    it("いいねを追加できる", () => {
+      const post = createNewPost(title, content, authorId);
+      const noiceUser = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const amount = createNoiceAmountOrThrow(100);
+      const noice = createNewNoice(noiceUser, getPostId(post), amount);
 
-      const updatedPost = receivePostNoice(post, receiveAmount);
+      const updatedPost = addNoiceToPost(post, noice);
 
-      expect(getNoiceAmountValue(getPostTotalNoiceAmount(updatedPost))).toBe(
-        300,
-      );
+      expect(getPostNoiceCount(updatedPost)).toBe(1);
+      expect(getPostTotalNoiceAmount(updatedPost)).toBe(100);
     });
 
-    it("0いいねの投稿にいいねを受け取ることができる", () => {
+    it("複数のいいねを追加できる", () => {
       const post = createNewPost(title, content, authorId);
-      const receiveAmount = createNoiceAmountOrThrow(150);
+      const user1 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const user2 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440003");
+      const amount1 = createNoiceAmountOrThrow(50);
+      const amount2 = createNoiceAmountOrThrow(150);
+      
+      const noice1 = createNewNoice(user1, getPostId(post), amount1);
+      const noice2 = createNewNoiceWithComment(user2, getPostId(post), amount2, "素晴らしい！");
 
-      const updatedPost = receivePostNoice(post, receiveAmount);
+      const postWithNoice1 = addNoiceToPost(post, noice1);
+      const postWithNoice2 = addNoiceToPost(postWithNoice1, noice2);
 
-      expect(getNoiceAmountValue(getPostTotalNoiceAmount(updatedPost))).toBe(
-        150,
-      );
+      expect(getPostNoiceCount(postWithNoice2)).toBe(2);
+      expect(getPostTotalNoiceAmount(postWithNoice2)).toBe(200);
+    });
+
+    it("0いいねから始まる", () => {
+      const post = createNewPost(title, content, authorId);
+      
+      expect(getPostTotalNoiceAmount(post)).toBe(0);
+      expect(getPostNoiceCount(post)).toBe(0);
+    });
+
+    it("いいねへのいいねも含めて総いいね数を計算する", () => {
+      const post = createNewPost(title, content, authorId);
+      const user1 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const user2 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440003");
+      const user3 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440004");
+      
+      // 投稿への直接いいね（100ポイント）
+      const mainNoice = createNewNoice(user1, getPostId(post), createNoiceAmountOrThrow(100));
+      
+      // いいねへのいいね（50ポイント）
+      const subNoice = createNewNoice(user2, getPostId(post), createNoiceAmountOrThrow(50));
+      
+      // さらにいいねへのいいね（30ポイント）
+      const subSubNoice = createNewNoice(user3, getPostId(post), createNoiceAmountOrThrow(30));
+      const subNoiceWithSubSubNoice = addNoiceToNoice(subNoice, subSubNoice);
+      const finalMainNoice = addNoiceToNoice(mainNoice, subNoiceWithSubSubNoice);
+      
+      const updatedPost = addNoiceToPost(post, finalMainNoice);
+
+      // 投稿の総いいね数は100 + (50 + 30) = 180
+      expect(getPostTotalNoiceAmount(updatedPost)).toBe(180);
+      expect(getPostNoiceCount(updatedPost)).toBe(1); // 直接の投稿いいね数
+    });
+
+    it("複数の投稿いいね、それぞれにサブいいねがある場合", () => {
+      const post = createNewPost(title, content, authorId);
+      const user1 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const user2 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440003");
+      const user3 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440004");
+      const user4 = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440005");
+      
+      // 1つ目の投稿いいね（100ポイント）とそのサブいいね（25ポイント）
+      const noice1 = createNewNoice(user1, getPostId(post), createNoiceAmountOrThrow(100));
+      const subNoice1 = createNewNoice(user3, getPostId(post), createNoiceAmountOrThrow(25));
+      const noice1WithSub = addNoiceToNoice(noice1, subNoice1);
+      
+      // 2つ目の投稿いいね（75ポイント）とそのサブいいね（40ポイント）
+      const noice2 = createNewNoice(user2, getPostId(post), createNoiceAmountOrThrow(75));
+      const subNoice2 = createNewNoice(user4, getPostId(post), createNoiceAmountOrThrow(40));
+      const noice2WithSub = addNoiceToNoice(noice2, subNoice2);
+      
+      let updatedPost = addNoiceToPost(post, noice1WithSub);
+      updatedPost = addNoiceToPost(updatedPost, noice2WithSub);
+
+      // 総いいね数: (100 + 25) + (75 + 40) = 240
+      expect(getPostTotalNoiceAmount(updatedPost)).toBe(240);
+      expect(getPostNoiceCount(updatedPost)).toBe(2); // 直接の投稿いいね数
     });
   });
 
@@ -220,10 +277,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -242,10 +299,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -352,10 +409,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -375,10 +432,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -387,10 +444,10 @@ describe("Post", () => {
         createPostTitleOrThrow("Different Title"),
         createPostContentOrThrow("Different content"),
         createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002"),
-        createNoiceAmountOrThrow(1000),
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         new Date(),
         new Date(),
       );
@@ -407,10 +464,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -419,10 +476,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -434,13 +491,14 @@ describe("Post", () => {
   describe("不変条件", () => {
     it("累計いいね数は常に0以上である", () => {
       const post = createNewPost(title, content, authorId);
-      expect(getNoiceAmountValue(getPostTotalNoiceAmount(post))).toBe(0);
+      expect(getPostTotalNoiceAmount(post)).toBe(0);
 
-      const receiveAmount = createNoiceAmountOrThrow(100);
-      const updatedPost = receivePostNoice(post, receiveAmount);
-      expect(getNoiceAmountValue(getPostTotalNoiceAmount(updatedPost))).toBe(
-        100,
-      );
+      const noiceUser = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002");
+      const amount = createNoiceAmountOrThrow(100);
+      const noice = createNewNoice(noiceUser, getPostId(post), amount);
+      const updatedPost = addNoiceToPost(post, noice);
+      
+      expect(getPostTotalNoiceAmount(updatedPost)).toBe(100);
     });
 
     it("作成日時は更新されない", () => {
@@ -449,10 +507,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );
@@ -472,10 +530,10 @@ describe("Post", () => {
         title,
         content,
         authorId,
-        totalNoice,
         reviewStatus,
         reviewComments,
         comments,
+        noices,
         now,
         now,
       );

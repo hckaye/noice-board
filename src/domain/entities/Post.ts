@@ -15,7 +15,6 @@ import type {
   UserId,
   PostTitle,
   PostContent,
-  NoiceAmount,
 } from "../types";
 import {
   isPostIdEqual,
@@ -25,11 +24,6 @@ import {
 import { isUserIdEqual, getUserIdValue } from "../value-objects/UserId";
 import { getPostTitleValue } from "../value-objects/PostTitle";
 import { getPostContentValue } from "../value-objects/PostContent";
-import {
-  getNoiceAmountValue,
-  addNoiceAmount,
-  createZeroNoiceAmount,
-} from "../value-objects/NoiceAmount";
 import {
   type ReviewStatus,
   getReviewStatusValue,
@@ -43,6 +37,10 @@ import {
   type Comment,
   createComment,
 } from "../value-objects/Comment";
+import {
+  type Noice,
+  getNoiceTotalAmount,
+} from "./Noice";
 
 /**
  * 投稿エンティティの型定義
@@ -52,10 +50,10 @@ export interface Post {
   readonly title: PostTitle;
   readonly content: PostContent;
   readonly authorId: UserId;
-  readonly totalNoiceAmount: NoiceAmount;
   readonly reviewStatus: ReviewStatus;
   readonly reviewComments: readonly ReviewComment[];
   readonly comments: readonly Comment[];
+  readonly noices: readonly Noice[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -68,10 +66,10 @@ export const createPost = (
   title: PostTitle,
   content: PostContent,
   authorId: UserId,
-  totalNoiceAmount: NoiceAmount,
   reviewStatus: ReviewStatus,
   reviewComments: readonly ReviewComment[],
   comments: readonly Comment[],
+  noices: readonly Noice[],
   createdAt: Date,
   updatedAt: Date,
 ): Post => {
@@ -80,10 +78,10 @@ export const createPost = (
     title,
     content,
     authorId,
-    totalNoiceAmount,
     reviewStatus,
     reviewComments,
     comments,
+    noices,
     createdAt,
     updatedAt,
   };
@@ -103,8 +101,8 @@ export const createNewPost = (
     title,
     content,
     authorId,
-    createZeroNoiceAmount(),
     createPendingReviewStatus(),
+    [],
     [],
     [],
     now,
@@ -141,10 +139,12 @@ export const getPostAuthorId = (post: Post): UserId => {
 };
 
 /**
- * 累計いいね数を取得する
+ * 累計いいね数を取得する（Noiceに付いたいいねも含めて再帰的に計算）
  */
-export const getPostTotalNoiceAmount = (post: Post): NoiceAmount => {
-  return post.totalNoiceAmount;
+export const getPostTotalNoiceAmount = (post: Post): number => {
+  return post.noices.reduce((total, noice) => {
+    return total + getNoiceTotalAmount(noice);
+  }, 0);
 };
 
 /**
@@ -203,12 +203,12 @@ export const updatePost = (
 };
 
 /**
- * いいねを受け取る
+ * いいねを追加する
  */
-export const receivePostNoice = (post: Post, amount: NoiceAmount): Post => {
+export const addNoiceToPost = (post: Post, noice: Noice): Post => {
   return {
     ...post,
-    totalNoiceAmount: addNoiceAmount(post.totalNoiceAmount, amount),
+    noices: [...post.noices, noice],
   };
 };
 
@@ -258,7 +258,7 @@ export const getPostContentAsString = (post: Post): string => {
  * 投稿の累計いいね数を数値として取得する
  */
 export const getPostTotalNoiceAmountAsNumber = (post: Post): number => {
-  return getNoiceAmountValue(post.totalNoiceAmount);
+  return getPostTotalNoiceAmount(post);
 };
 
 /**
@@ -370,5 +370,31 @@ export const getPostCommentsByUser = (
 ): readonly Comment[] => {
   return post.comments.filter(comment => 
     isUserIdEqual(comment.authorId, userId)
+  );
+};
+
+/**
+ * いいね一覧を取得する
+ */
+export const getPostNoices = (post: Post): readonly Noice[] => {
+  return post.noices;
+};
+
+/**
+ * いいね数を取得する
+ */
+export const getPostNoiceCount = (post: Post): number => {
+  return post.noices.length;
+};
+
+/**
+ * 指定されたユーザーのいいねを取得する
+ */
+export const getPostNoicesByUser = (
+  post: Post,
+  userId: UserId,
+): readonly Noice[] => {
+  return post.noices.filter(noice => 
+    isUserIdEqual(noice.fromUserId, userId)
   );
 };
