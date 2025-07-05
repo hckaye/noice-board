@@ -1,158 +1,370 @@
-import { describe, it, expect } from 'vitest'
-import { Post } from '../../../src/domain/entities/Post'
-import { PostId } from '../../../src/domain/value-objects/PostId'
-import { PostTitle } from '../../../src/domain/value-objects/PostTitle'
-import { PostContent } from '../../../src/domain/value-objects/PostContent'
-import { UserId } from '../../../src/domain/value-objects/UserId'
-import { NoiceAmount } from '../../../src/domain/value-objects/NoiceAmount'
+import { describe, it, expect } from "vitest";
+import {
+  createPost,
+  createNewPost,
+  updatePostTitle,
+  updatePostContent,
+  updatePost,
+  receivePostNoice,
+  isPostAuthor,
+  isPostEqual,
+  getPostId,
+  getPostTitle,
+  getPostContent,
+  getPostAuthorId,
+  getPostTotalNoiceAmount,
+  getPostCreatedAt,
+  getPostUpdatedAt,
+  getPostReviewStatus,
+  updatePostReviewStatus,
+} from "../../../src/domain/entities/Post";
+import {
+  createPostIdOrThrow,
+  isPostIdEqual,
+} from "../../../src/domain/value-objects/PostId";
+import {
+  createPostTitleOrThrow,
+  isPostTitleEqual,
+} from "../../../src/domain/value-objects/PostTitle";
+import {
+  createPostContentOrThrow,
+  isPostContentEqual,
+} from "../../../src/domain/value-objects/PostContent";
+import {
+  createUserIdOrThrow,
+  isUserIdEqual,
+} from "../../../src/domain/value-objects/UserId";
+import {
+  createNoiceAmountOrThrow,
+  isNoiceAmountEqual,
+  getNoiceAmountValue,
+} from "../../../src/domain/value-objects/NoiceAmount";
+import {
+  createPendingReviewStatus,
+  createScheduledReviewStatus,
+  createAsIsReviewStatus,
+  isReviewStatusEqual,
+  isPendingReview,
+} from "../../../src/domain/value-objects/ReviewStatus";
 
-describe('Post', () => {
-  const postId = PostId.create('550e8400-e29b-41d4-a716-446655440000')
-  const title = PostTitle.create('テスト投稿のタイトル')
-  const content = PostContent.create('これはテスト投稿の本文です。')
-  const authorId = UserId.create('550e8400-e29b-41d4-a716-446655440001')
-  const totalNoice = NoiceAmount.create(500)
-  const now = new Date()
+describe("Post", () => {
+  const postId = createPostIdOrThrow("550e8400-e29b-41d4-a716-446655440000");
+  const title = createPostTitleOrThrow("テスト投稿のタイトル");
+  const content = createPostContentOrThrow("これはテスト投稿の本文です。");
+  const authorId = createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440001");
+  const totalNoice = createNoiceAmountOrThrow(500);
+  const reviewStatus = createPendingReviewStatus();
+  const now = new Date();
 
-  describe('投稿の作成', () => {
-    it('有効な値でPostを作成できる', () => {
-      const post = Post.create(postId, title, content, authorId, totalNoice, now, now)
-
-      expect(post.getId().equals(postId)).toBe(true)
-      expect(post.getTitle().equals(title)).toBe(true)
-      expect(post.getContent().equals(content)).toBe(true)
-      expect(post.getAuthorId().equals(authorId)).toBe(true)
-      expect(post.getTotalNoiceAmount().equals(totalNoice)).toBe(true)
-      expect(post.getCreatedAt()).toBe(now)
-      expect(post.getUpdatedAt()).toBe(now)
-    })
-
-    it('新しいPostを生成できる', () => {
-      const newPost = Post.createNew(title, content, authorId)
-
-      expect(newPost.getTitle().equals(title)).toBe(true)
-      expect(newPost.getContent().equals(content)).toBe(true)
-      expect(newPost.getAuthorId().equals(authorId)).toBe(true)
-      expect(newPost.getTotalNoiceAmount().getValue()).toBe(0)
-      expect(newPost.getCreatedAt()).toBeInstanceOf(Date)
-      expect(newPost.getUpdatedAt()).toBeInstanceOf(Date)
-    })
-  })
-
-  describe('投稿の編集', () => {
-    it('タイトルを更新できる', () => {
-      const post = Post.create(postId, title, content, authorId, totalNoice, now, now)
-      const newTitle = PostTitle.create('更新されたタイトル')
-
-      post.updateTitle(newTitle)
-
-      expect(post.getTitle().equals(newTitle)).toBe(true)
-    })
-
-    it('本文を更新できる', () => {
-      const post = Post.create(postId, title, content, authorId, totalNoice, now, now)
-      const newContent = PostContent.create('更新された本文です。')
-
-      post.updateContent(newContent)
-
-      expect(post.getContent().equals(newContent)).toBe(true)
-    })
-
-    it('タイトルと本文を同時に更新できる', () => {
-      const post = Post.create(postId, title, content, authorId, totalNoice, now, now)
-      const newTitle = PostTitle.create('新しいタイトル')
-      const newContent = PostContent.create('新しい本文です。')
-
-      post.updatePost(newTitle, newContent)
-
-      expect(post.getTitle().equals(newTitle)).toBe(true)
-      expect(post.getContent().equals(newContent)).toBe(true)
-    })
-  })
-
-  describe('いいねの受け取り', () => {
-    it('いいねを受け取ることができる', () => {
-      const post = Post.create(postId, title, content, authorId, NoiceAmount.create(100), now, now)
-      const receiveAmount = NoiceAmount.create(200)
-
-      post.receiveNoice(receiveAmount)
-
-      expect(post.getTotalNoiceAmount().getValue()).toBe(300)
-    })
-
-    it('0いいねの投稿にいいねを受け取ることができる', () => {
-      const post = Post.createNew(title, content, authorId)
-      const receiveAmount = NoiceAmount.create(150)
-
-      post.receiveNoice(receiveAmount)
-
-      expect(post.getTotalNoiceAmount().getValue()).toBe(150)
-    })
-  })
-
-  describe('投稿者の判定', () => {
-    it('指定されたユーザーが投稿者かどうか判定できる', () => {
-      const post = Post.create(postId, title, content, authorId, totalNoice, now, now)
-      const otherUserId = UserId.create('550e8400-e29b-41d4-a716-446655440002')
-
-      expect(post.isAuthor(authorId)).toBe(true)
-      expect(post.isAuthor(otherUserId)).toBe(false)
-    })
-  })
-
-  describe('等価性', () => {
-    it('同じIDのPostは等しい', () => {
-      const post1 = Post.create(postId, title, content, authorId, totalNoice, now, now)
-      const post2 = Post.create(
+  describe("投稿の作成", () => {
+    it("有効な値でPostを作成できる", () => {
+      const post = createPost(
         postId,
-        PostTitle.create('Different Title'),
-        PostContent.create('Different content'),
-        UserId.create('550e8400-e29b-41d4-a716-446655440002'),
-        NoiceAmount.create(1000),
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+
+      expect(isPostIdEqual(getPostId(post), postId)).toBe(true);
+      expect(isPostTitleEqual(getPostTitle(post), title)).toBe(true);
+      expect(isPostContentEqual(getPostContent(post), content)).toBe(true);
+      expect(isUserIdEqual(getPostAuthorId(post), authorId)).toBe(true);
+      expect(
+        isNoiceAmountEqual(getPostTotalNoiceAmount(post), totalNoice),
+      ).toBe(true);
+      expect(isReviewStatusEqual(getPostReviewStatus(post), reviewStatus)).toBe(
+        true,
+      );
+      expect(getPostCreatedAt(post)).toBe(now);
+      expect(getPostUpdatedAt(post)).toBe(now);
+    });
+
+    it("新しいPostを生成できる", () => {
+      const newPost = createNewPost(title, content, authorId);
+
+      expect(isPostTitleEqual(getPostTitle(newPost), title)).toBe(true);
+      expect(isPostContentEqual(getPostContent(newPost), content)).toBe(true);
+      expect(isUserIdEqual(getPostAuthorId(newPost), authorId)).toBe(true);
+      expect(getNoiceAmountValue(getPostTotalNoiceAmount(newPost))).toBe(0);
+      expect(isPendingReview(getPostReviewStatus(newPost))).toBe(true);
+      expect(getPostCreatedAt(newPost)).toBeInstanceOf(Date);
+      expect(getPostUpdatedAt(newPost)).toBeInstanceOf(Date);
+    });
+  });
+
+  describe("投稿の編集", () => {
+    it("タイトルを更新できる", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const newTitle = createPostTitleOrThrow("更新されたタイトル");
+
+      const updatedPost = updatePostTitle(post, newTitle);
+
+      expect(isPostTitleEqual(getPostTitle(updatedPost), newTitle)).toBe(true);
+    });
+
+    it("本文を更新できる", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const newContent = createPostContentOrThrow("更新された本文です。");
+
+      const updatedPost = updatePostContent(post, newContent);
+
+      expect(isPostContentEqual(getPostContent(updatedPost), newContent)).toBe(
+        true,
+      );
+    });
+
+    it("タイトルと本文を同時に更新できる", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const newTitle = createPostTitleOrThrow("新しいタイトル");
+      const newContent = createPostContentOrThrow("新しい本文です。");
+
+      const updatedPost = updatePost(post, newTitle, newContent);
+
+      expect(isPostTitleEqual(getPostTitle(updatedPost), newTitle)).toBe(true);
+      expect(isPostContentEqual(getPostContent(updatedPost), newContent)).toBe(
+        true,
+      );
+    });
+  });
+
+  describe("いいねの受け取り", () => {
+    it("いいねを受け取ることができる", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        createNoiceAmountOrThrow(100),
+        reviewStatus,
+        now,
+        now,
+      );
+      const receiveAmount = createNoiceAmountOrThrow(200);
+
+      const updatedPost = receivePostNoice(post, receiveAmount);
+
+      expect(getNoiceAmountValue(getPostTotalNoiceAmount(updatedPost))).toBe(
+        300,
+      );
+    });
+
+    it("0いいねの投稿にいいねを受け取ることができる", () => {
+      const post = createNewPost(title, content, authorId);
+      const receiveAmount = createNoiceAmountOrThrow(150);
+
+      const updatedPost = receivePostNoice(post, receiveAmount);
+
+      expect(getNoiceAmountValue(getPostTotalNoiceAmount(updatedPost))).toBe(
+        150,
+      );
+    });
+  });
+
+  describe("レビューステータスの管理", () => {
+    it("レビューステータスを更新できる", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const newReviewStatus = createScheduledReviewStatus();
+
+      const updatedPost = updatePostReviewStatus(post, newReviewStatus);
+
+      expect(
+        isReviewStatusEqual(getPostReviewStatus(updatedPost), newReviewStatus),
+      ).toBe(true);
+    });
+
+    it("レビューステータス更新時に更新日時が変更される", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const originalUpdatedAt = getPostUpdatedAt(post);
+      const newReviewStatus = createAsIsReviewStatus();
+
+      const updatedPost = updatePostReviewStatus(post, newReviewStatus);
+
+      expect(getPostUpdatedAt(updatedPost)).not.toBe(originalUpdatedAt);
+      expect(
+        isReviewStatusEqual(getPostReviewStatus(updatedPost), newReviewStatus),
+      ).toBe(true);
+    });
+  });
+
+  describe("投稿者の判定", () => {
+    it("指定されたユーザーが投稿者かどうか判定できる", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const otherUserId = createUserIdOrThrow(
+        "550e8400-e29b-41d4-a716-446655440002",
+      );
+
+      expect(isPostAuthor(post, authorId)).toBe(true);
+      expect(isPostAuthor(post, otherUserId)).toBe(false);
+    });
+  });
+
+  describe("等価性", () => {
+    it("同じIDのPostは等しい", () => {
+      const post1 = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const post2 = createPost(
+        postId,
+        createPostTitleOrThrow("Different Title"),
+        createPostContentOrThrow("Different content"),
+        createUserIdOrThrow("550e8400-e29b-41d4-a716-446655440002"),
+        createNoiceAmountOrThrow(1000),
+        reviewStatus,
         new Date(),
-        new Date()
-      )
+        new Date(),
+      );
 
-      expect(post1.equals(post2)).toBe(true)
-    })
+      expect(isPostEqual(post1, post2)).toBe(true);
+    });
 
-    it('異なるIDのPostは等しくない', () => {
-      const differentPostId = PostId.create('550e8400-e29b-41d4-a716-446655440003')
-      const post1 = Post.create(postId, title, content, authorId, totalNoice, now, now)
-      const post2 = Post.create(differentPostId, title, content, authorId, totalNoice, now, now)
+    it("異なるIDのPostは等しくない", () => {
+      const differentPostId = createPostIdOrThrow(
+        "550e8400-e29b-41d4-a716-446655440003",
+      );
+      const post1 = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const post2 = createPost(
+        differentPostId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
 
-      expect(post1.equals(post2)).toBe(false)
-    })
-  })
+      expect(isPostEqual(post1, post2)).toBe(false);
+    });
+  });
 
-  describe('不変条件', () => {
-    it('累計いいね数は常に0以上である', () => {
-      const post = Post.createNew(title, content, authorId)
-      expect(post.getTotalNoiceAmount().getValue()).toBe(0)
+  describe("不変条件", () => {
+    it("累計いいね数は常に0以上である", () => {
+      const post = createNewPost(title, content, authorId);
+      expect(getNoiceAmountValue(getPostTotalNoiceAmount(post))).toBe(0);
 
-      const receiveAmount = NoiceAmount.create(100)
-      post.receiveNoice(receiveAmount)
-      expect(post.getTotalNoiceAmount().getValue()).toBe(100)
-    })
+      const receiveAmount = createNoiceAmountOrThrow(100);
+      const updatedPost = receivePostNoice(post, receiveAmount);
+      expect(getNoiceAmountValue(getPostTotalNoiceAmount(updatedPost))).toBe(
+        100,
+      );
+    });
 
-    it('作成日時は更新されない', () => {
-      const post = Post.create(postId, title, content, authorId, totalNoice, now, now)
-      const originalCreatedAt = post.getCreatedAt()
+    it("作成日時は更新されない", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const originalCreatedAt = getPostCreatedAt(post);
 
-      post.updateTitle(PostTitle.create('新しいタイトル'))
+      const updatedPost = updatePostTitle(
+        post,
+        createPostTitleOrThrow("新しいタイトル"),
+      );
 
-      expect(post.getCreatedAt()).toBe(originalCreatedAt)
-    })
+      expect(getPostCreatedAt(updatedPost)).toBe(originalCreatedAt);
+    });
 
-    it('更新日時は編集時に更新される', () => {
-      const post = Post.create(postId, title, content, authorId, totalNoice, now, now)
-      const originalUpdatedAt = post.getUpdatedAt()
+    it("更新日時は編集時に更新される", () => {
+      const post = createPost(
+        postId,
+        title,
+        content,
+        authorId,
+        totalNoice,
+        reviewStatus,
+        now,
+        now,
+      );
+      const originalUpdatedAt = getPostUpdatedAt(post);
 
       // 少し時間を空ける
       setTimeout(() => {
-        post.updateTitle(PostTitle.create('新しいタイトル'))
-        expect(post.getUpdatedAt()).not.toBe(originalUpdatedAt)
-      }, 1)
-    })
-  })
-})
+        const updatedPost = updatePostTitle(
+          post,
+          createPostTitleOrThrow("新しいタイトル"),
+        );
+        expect(getPostUpdatedAt(updatedPost)).not.toBe(originalUpdatedAt);
+      }, 1);
+    });
+  });
+});

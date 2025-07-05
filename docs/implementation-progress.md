@@ -19,42 +19,49 @@
 ### 値オブジェクト
 
 #### ✅ UserId
+
 - ファイル: `src/domain/value-objects/UserId.ts`
 - 実装方針: 関数型実装（typeとinterface、関数で構成）
 - UUID v4形式のバリデーション
 - 作成、生成、等価性判定、文字列変換機能
 
 #### ✅ Username
+
 - ファイル: `src/domain/value-objects/Username.ts`
 - 実装方針: 関数型実装
 - 3-20文字の英数字バリデーション
 - 作成、等価性判定、長さ取得機能
 
 #### ✅ PostId
+
 - ファイル: `src/domain/value-objects/PostId.ts`
 - 実装方針: 関数型実装
 - UUID v4形式のバリデーション
 - 作成、生成、等価性判定、文字列変換機能
 
 #### ✅ PostTitle
+
 - ファイル: `src/domain/value-objects/PostTitle.ts`
 - 実装方針: 関数型実装
 - 1-100文字のバリデーション
 - 作成、等価性判定、長さ取得機能
 
 #### ✅ PostContent
+
 - ファイル: `src/domain/value-objects/PostContent.ts`
 - 実装方針: 関数型実装
 - 1-1000文字のバリデーション
 - 作成、等価性判定、長さ取得機能
 
 #### ✅ NoiceAmount
+
 - ファイル: `src/domain/value-objects/NoiceAmount.ts`
 - 実装方針: 関数型実装
 - 0以上の整数バリデーション
 - 作成、演算、比較機能
 
 #### ✅ RupeeAmount
+
 - ファイル: `src/domain/value-objects/RupeeAmount.ts`
 - 実装方針: 関数型実装
 - 0以上の整数バリデーション
@@ -63,12 +70,14 @@
 ### エンティティ
 
 #### ✅ User
+
 - ファイル: `src/domain/entities/User.ts`
 - 実装方針: interface定義と関数で構成
 - ユーザーの作成、更新、いいね操作機能
 - 不変性を保った状態更新
 
 #### ✅ Post
+
 - ファイル: `src/domain/entities/Post.ts`
 - 実装方針: interface定義と関数で構成
 - 投稿の作成、更新、いいね受け取り機能
@@ -77,16 +86,18 @@
 ## 実装方針の変更
 
 ### 変更前（クラスベース）
+
 ```typescript
 export class UserId {
-  static create(value: string): UserId
-  static generate(): UserId
-  getValue(): string
-  equals(other: UserId): boolean
+  static create(value: string): UserId;
+  static generate(): UserId;
+  getValue(): string;
+  equals(other: UserId): boolean;
 }
 ```
 
 ### 変更後（関数ベース）
+
 ```typescript
 export type { UserId }
 export const createUserId = (value: string): Result<UserId>
@@ -98,6 +109,7 @@ export const isUserIdEqual = (userId1: UserId, userId2: UserId): boolean
 ## 現在必要な作業
 
 ### テストファイルの更新
+
 - 🔄 **各値オブジェクトのテスト** - 新しい関数型APIに対応
   - `tests/domain/value-objects/UserId.test.ts`
   - `tests/domain/value-objects/Username.test.ts`
@@ -113,6 +125,7 @@ export const isUserIdEqual = (userId1: UserId, userId2: UserId): boolean
 ### 実装方針チェック
 
 #### ✅ 完了した項目
+
 1. ドメインモデルを型で表現し、ビジネスロジックを型安全に実装
 2. any型の使用を避け、明示的な型を指定
 3. 型定義ファイルを使用して、外部ライブラリの型を明示的に定義
@@ -123,12 +136,14 @@ export const isUserIdEqual = (userId1: UserId, userId2: UserId): boolean
 8. 型の互換性を理解し、適切な型の変換を行う
 
 #### 🔄 進行中の項目
+
 9. 型で保障された入出力について、その型ではない値が渡された場合のテストは行わない
    - テストファイルの更新が必要
 
 ## アーキテクチャ
 
 ### ディレクトリ構造
+
 ```
 src/domain/
 ├── types/index.ts           # 共通型定義
@@ -140,6 +155,7 @@ src/domain/
 ```
 
 ### 型安全性の確保
+
 - ブランド型による型レベルでの区別
 - Result型による安全なエラーハンドリング
 - 型ガードによる実行時型チェック
