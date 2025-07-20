@@ -8,24 +8,26 @@ import type { PostId } from '../domain/value-objects/PostId';
 import type { PostGroupPath } from '../domain/value-objects/PostGroupPath';
 import type { UserId } from '../domain/value-objects/UserId';
 
+import type { Result } from "../domain/types/Result";
+
 export interface INoiceBoardDataStoreApi {
   // PostGroup関連
-  getPostGroup(path: PostGroupPath): Promise<PostGroup | null>;
-  listPostGroups(): Promise<PostGroup[]>;
+  getPostGroup(path: PostGroupPath): Promise<Result<PostGroup>>;
+  listPostGroups(): Promise<Result<PostGroup[]>>;
 
   // Post関連
-  getPost(postId: PostId): Promise<Post | null>;
-  listPosts(groupPath: PostGroupPath): Promise<Post[]>;
-  createPost(post: Post): Promise<void>;
-  updatePost(post: Post): Promise<void>;
-  deletePost(postId: PostId): Promise<void>;
+  getPost(postId: PostId): Promise<Result<Post>>;
+  listPosts(groupPath: PostGroupPath): Promise<Result<Post[]>>;
+  createPost(post: Post): Promise<Result<void>>;
+  updatePost(post: Post): Promise<Result<void>>;
+  deletePost(postId: PostId): Promise<Result<void>>;
 
   // Noice関連
-  addNoice(postId: PostId, userId: UserId): Promise<void>;
-  removeNoice(postId: PostId, userId: UserId): Promise<void>;
-  getNoiceCount(postId: PostId): Promise<number>;
+  addNoice(postId: PostId, userId: UserId): Promise<Result<void>>;
+  removeNoice(postId: PostId, userId: UserId): Promise<Result<void>>;
+  getNoiceCount(postId: PostId): Promise<Result<number>>;
 
   // User関連
-  getUser(userId: UserId): Promise<User | null>;
-  listUsers(): Promise<User[]>;
+  getUser(userId: UserId): Promise<Result<User>>;
+  listUsers(): Promise<Result<User[]>>;
 }
