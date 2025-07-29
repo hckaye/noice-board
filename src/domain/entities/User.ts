@@ -45,7 +45,6 @@ export const createUser = (
   displayName: UserDisplayName,
   noiceAmount: NoiceAmount,
   createdAt: Date,
-  avatarUrl: string = '',
 ): User => {
   return {
     id,
@@ -53,7 +52,6 @@ export const createUser = (
     displayName,
     noiceAmount,
     createdAt,
-    avatarUrl,
   };
 };
 
@@ -64,7 +62,6 @@ export const createNewUser = (
   username: Username,
   displayName: UserDisplayName,
   noiceAmount: NoiceAmount,
-  avatarUrl: string = '',
 ): User => {
   return createUser(
     generateNewUserId(),
@@ -72,7 +69,6 @@ export const createNewUser = (
     displayName,
     noiceAmount,
     new Date(),
-    avatarUrl,
   );
 };
 
