@@ -1,34 +1,89 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
-import "./App.css";
+import { useState } from 'react';
+import { Provider } from 'jotai';
+import { Layout } from './components/Layout';
+import { PostList } from './components/PostList';
+import { CreatePostDialog } from './components/CreatePostDialog';
+import { useInitializeApp } from './hooks/useInitializeApp';
+import { Toaster } from './components/ui/sonner';
+import { toast } from 'sonner';
+import { useAtom } from 'jotai';
+import { postsAtom, currentUserAtom } from './store/atoms';
+import { MockNoiceBoardDataStoreApi } from './infrastructure/mock/MockNoiceBoardDataStoreApi';
+import type { Post } from './domain/entities/Post';
+import type { PostId } from './domain/value-objects/PostId';
+import { getPostIdValue } from './domain/value-objects/PostId';
 
-function App() {
-  const [count, setCount] = useState(0);
+function AppContent() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [posts, setPosts] = useAtom(postsAtom);
+  const [currentUser] = useAtom(currentUserAtom);
+  const api = new MockNoiceBoardDataStoreApi();
+
+  useInitializeApp();
+
+  const handleNoice = async (postId: string) => {
+    if (!currentUser) {
+      toast.error('ログインしてください');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await api.addNoice(
+        postId as unknown as PostId,
+        currentUser.id
+      );
+
+      if (result.success) {
+        // Refresh post data
+        const postResult = await api.getPost(postId as unknown as PostId);
+        if (postResult.success) {
+          const updatedPosts = new Map(posts);
+          updatedPosts.set(postId, postResult.value);
+          setPosts(updatedPosts);
+          toast.success('Noice！を送りました');
+        }
+      } else {
+        toast.error(result.error.message || 'エラーが発生しました');
+      }
+    } catch {
+      toast.error('エラーが発生しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleComment = () => {
+    toast.info('コメント機能は準備中です');
+  };
+
+  const handleCreatePost = async (post: Post) => {
+    const result = await api.createPost(post);
+    if (result.success) {
+      const updatedPosts = new Map(posts);
+      updatedPosts.set(getPostIdValue(post.id), post);
+      setPosts(updatedPosts);
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <Layout>
+      <PostList
+        isLoading={isLoading}
+        onNoice={handleNoice}
+        onComment={handleComment}
+      />
+      <CreatePostDialog onCreatePost={handleCreatePost} />
+      <Toaster position="bottom-right" richColors />
+    </Layout>
+  );
+}
+
+function App() {
+  return (
+    <Provider>
+      <AppContent />
+    </Provider>
   );
 }
 

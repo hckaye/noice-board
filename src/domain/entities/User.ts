@@ -52,6 +52,7 @@ export const createUser = (
     displayName,
     noiceAmount,
     createdAt,
+    avatarUrl: '',
   };
 };
 

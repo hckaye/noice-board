@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ConfluencePostGroupRepository } from "../../../src/infrastructure/confluence/ConfluencePostGroupRepository";
 import { createPostGroupPath } from "../../../src/domain/value-objects/PostGroupPath";
 import { getPostGroupValue } from "../../../src/domain/value-objects/PostGroup";

@@ -132,3 +132,6 @@ export const updateUserRupeeAmount = (user: User, amount: RupeeAmount): User
 - `/docs/implementation-progress.md` - Current implementation status
 - `/src/domain/types/index.ts` - Core type definitions
 - `/src/domain/utils/validators.ts` - Validation functions
+
+## UI Implementation Notes
+- Use shadcn/ui for building frontend ui
