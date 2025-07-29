@@ -5,7 +5,7 @@
 import type { PostGroup } from '../../domain/entities/PostGroup';
 import type { Post } from '../../domain/entities/Post';
 import type { PostGroupPath } from '../../domain/value-objects/PostGroupPath';
-import type { ConfluenceApiClientImpl, ConfluencePage, ConfluenceComment, ConfluenceUser } from './ConfluenceApiClientImpl';
+import type { ConfluenceApiClientImpl, ConfluenceComment } from './ConfluenceApiClientImpl';
 
 // PostGroupRepositoryインターフェース
 export interface PostGroupRepository {
@@ -62,7 +62,7 @@ export const convertConfluenceCommentToPost = (
   let hashtags = createEmptyHashtagList();
   const hashtagMatch = comment.body.storage.value.match(/\[\[\s*HashTag:\s*([^\]]+)\]\]/i);
   if (hashtagMatch) {
-    const tags = hashtagMatch[1].split(",").map(s => s.trim()).filter(Boolean);
+    const tags = hashtagMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean);
     for (const tag of tags) {
       hashtags = addHashtagToList(hashtags, tag);
     }

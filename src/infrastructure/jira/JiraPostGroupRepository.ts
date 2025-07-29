@@ -5,6 +5,10 @@
 import type { PostGroup } from '../../domain/entities/PostGroup';
 import type { Post } from '../../domain/entities/Post';
 import type { PostGroupPath } from '../../domain/value-objects/PostGroupPath';
+import type { PostId } from "../../domain/value-objects/PostId";
+import type { UserId } from "../../domain/value-objects/UserId";
+import type { User } from "../../domain/entities/User";
+import type { Result } from "../../domain/types/Result";
 
 // Jira APIクライアントの型定義
 export interface JiraApiClient {
@@ -173,81 +177,110 @@ export const convertJiraCommentToPost = (
   );
 };
 
+// import type { INoiceBoardDataStoreApi } from "../NoiceBoardDataStoreApi";
+
+import type { INoiceBoardDataStoreApi } from "../NoiceBoardDataStoreApi";
+
 // Jira実装
-export class JiraPostGroupRepository implements PostGroupRepository {
+export class JiraPostGroupRepository implements INoiceBoardDataStoreApi {
   private readonly apiClient: JiraApiClient;
 
   constructor(apiClient: JiraApiClient) {
     this.apiClient = apiClient;
   }
 
-  // PostGroupPathからJira Epic/Task/Subtaskを辿ってPostGroupを取得
-  async findByPath(path: PostGroupPath): Promise<PostGroup | null> {
-    // path.valueをEpicのIssue Keyとみなす
-    const epicKey = (path as unknown as { value: string }).value ?? "";
-    if (!epicKey) return null;
+  // PostGroup関連
+  async getPostGroup(path: PostGroupPath): Promise<Result<PostGroup>> {
+    try {
+      const epicKey = (path as unknown as { value: string }).value ?? "";
+      if (!epicKey) return { success: false, error: { code: "INVALID_PATH", message: "Invalid path" } };
 
-    // Epicとその子（Task/Subtask）を再帰的に取得
-    const buildGroup = async (epic: JiraIssue): Promise<PostGroup> => {
-      // Epic配下のTaskを取得
-      const epicWithChildren = await this.apiClient.fetchEpicWithChildren(epic.key);
-      const taskIssues: JiraIssue[] = epicWithChildren.fields.children ?? [];
-
-      // Task IssueをPostに変換
-      const posts = await Promise.all(
-        taskIssues.map(async (task) => {
-          // Task IssueのlabelsからPostGroup階層とハッシュタグを抽出
-          const fields = task.fields as JiraIssue["fields"] & {
-            labels?: string[];
-            status?: { name: string };
-            reporter?: { accountId: string; displayName: string };
-            created?: string;
-          };
-          const labels: string[] = fields.labels ?? [];
-          const hashtagLabels = labels.filter(l => l.startsWith("_#"));
-
-          // コメント取得
-          const comments = await this.apiClient.fetchIssueComments(task.key);
-
-          // Review/Noice/NoiceComment変換（ここでは単純に全コメントをPostのコメントとして格納、詳細ロジックは後続で拡張）
-          // Noice, NoiceComment, ReviewCommentの変換は要件に応じて拡張
-          // HashtagList型へ変換
-          let hashtags = createEmptyHashtagList();
-          for (const tag of hashtagLabels.map(l => l.replace(/^_#/, ""))) {
-            hashtags = addHashtagToList(hashtags, tag);
-          }
-          // Post生成
-          const basePost = convertJiraCommentToPost(
-            comments[0] ?? {
-              id: "",
-              body: fields.summary,
-              author: fields.reporter ?? { accountId: "", displayName: "" },
-              created: fields.created ?? new Date().toISOString(),
-            },
-            undefined,
-            comments.slice(1)
-          );
-          // hashtagsのみ上書き
-          return {
-            ...basePost,
-            hashtags,
-          };
-        })
-      );
-
-      // Epic配下のTask以外の階層（サブグループ）はラベルで表現するためchildrenは空配列
-      return {
-        name: createPostGroupVOFromSummary(epic.fields.summary),
-        noiceLimit: extractNoiceLimitFromDescription(epic.fields.description),
-        posts,
-        children: [],
-      };
-    };
-
-    // Epic取得
-    const epic = await this.apiClient.fetchIssue(epicKey);
-    return buildGroup(epic);
+      const epic = await this.apiClient.fetchIssue(epicKey);
+      const group = await (async (epic: JiraIssue): Promise<PostGroup> => {
+        const epicWithChildren = await this.apiClient.fetchEpicWithChildren(epic.key);
+        const taskIssues: JiraIssue[] = epicWithChildren.fields.children ?? [];
+        const posts = await Promise.all(
+          taskIssues.map(async (task) => {
+            const fields = task.fields as JiraIssue["fields"] & {
+              labels?: string[];
+              status?: { name: string };
+              reporter?: { accountId: string; displayName: string };
+              created?: string;
+            };
+            const labels: string[] = fields.labels ?? [];
+            const hashtagLabels = labels.filter(l => l.startsWith("_#"));
+            const comments = await this.apiClient.fetchIssueComments(task.key);
+            let hashtags = createEmptyHashtagList();
+            for (const tag of hashtagLabels.map(l => l.replace(/^_#/, ""))) {
+              hashtags = addHashtagToList(hashtags, tag);
+            }
+            const basePost = convertJiraCommentToPost(
+              comments[0] ?? {
+                id: "",
+                body: fields.summary,
+                author: fields.reporter ?? { accountId: "", displayName: "" },
+                created: fields.created ?? new Date().toISOString(),
+              },
+              undefined,
+              comments.slice(1)
+            );
+            return {
+              ...basePost,
+              hashtags,
+            };
+          })
+        );
+        return {
+          name: createPostGroupVOFromSummary(epic.fields.summary),
+          noiceLimit: extractNoiceLimitFromDescription(epic.fields.description),
+          posts,
+          children: [],
+        };
+      })(epic);
+      return { success: true, value: group };
+    } catch (error: unknown) {
+      return { success: false, error: { code: "UNEXPECTED_ERROR", message: error instanceof Error ? error.message : "Unknown error" } };
+    }
   }
 
-  // 必要に応じて他のメソッドを追加
+  async listPostGroups(): Promise<Result<PostGroup[]>> {
+    // 未実装
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+
+  // Post関連
+  async getPost(_postId: PostId): Promise<Result<Post>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+  async listPosts(_groupPath: PostGroupPath): Promise<Result<Post[]>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+  async createPost(_post: Post): Promise<Result<void>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+  async updatePost(_post: Post): Promise<Result<void>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+  async deletePost(_postId: PostId): Promise<Result<void>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+
+  // Noice関連
+  async addNoice(_postId: PostId, _userId: UserId): Promise<Result<void>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+  async removeNoice(_postId: PostId, _userId: UserId): Promise<Result<void>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+  async getNoiceCount(_postId: PostId): Promise<Result<number>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+
+  // User関連
+  async getUser(_userId: UserId): Promise<Result<User>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
+  async listUsers(): Promise<Result<User[]>> {
+    return { success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } };
+  }
 }
